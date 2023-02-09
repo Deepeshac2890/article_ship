@@ -9,10 +9,11 @@ import (
 
 var openDBConnection *sql.DB
 
+// InitConnection To initialize DB connections
 func InitConnection() {
 	// Open up our database connection.
-	// I've set up a database on my local machine using phpmyadmin.
-	// The database is called testDb
+	// I've set up a database on my local machine using mysql.
+	// This information is coming from secrets file which will not be merged on git.
 	dataSourceName := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", userName, password, hostName, port, dbName)
 	db, err := sql.Open("mysql", dataSourceName)
 	if err != nil {
@@ -22,6 +23,10 @@ func InitConnection() {
 	openDBConnection = db
 }
 
+/*
+*
+To close the connection
+*/
 func closeConnection() {
 	err := openDBConnection.Close()
 	if err != nil {
@@ -30,6 +35,7 @@ func closeConnection() {
 	}
 }
 
+// InsertArticle To insert the article
 func InsertArticle(article Models.Article) bool {
 	if openDBConnection != nil {
 		_, isDuplicate := GetSingleArticle(article.Id)
@@ -56,6 +62,7 @@ func InsertArticle(article Models.Article) bool {
 	return false
 }
 
+// GetAllArticles To get all the articles
 func GetAllArticles() Models.Articles {
 	var articles Models.Articles
 	if openDBConnection != nil {
@@ -78,6 +85,7 @@ func GetAllArticles() Models.Articles {
 	return articles
 }
 
+// GetSingleArticle To get single article based on id
 func GetSingleArticle(id int32) (Models.Article, bool) {
 	var article Models.Article
 	if openDBConnection != nil {
@@ -94,6 +102,7 @@ func GetSingleArticle(id int32) (Models.Article, bool) {
 	}
 }
 
+// DeleteSingleArticle To delete single article based on id
 func DeleteSingleArticle(id int32) bool {
 	if openDBConnection != nil {
 		sqlQuery := fmt.Sprintf("DELETE * FROM Articles where id=%d", id)
@@ -108,6 +117,7 @@ func DeleteSingleArticle(id int32) bool {
 	return false
 }
 
+// DeleteAllArticles Delete all articles
 func DeleteAllArticles() bool {
 	if openDBConnection != nil {
 		sqlQuery := fmt.Sprintf("DELETE FROM Articles")
@@ -122,6 +132,7 @@ func DeleteAllArticles() bool {
 	return false
 }
 
+// UpdateArticle To update an article based on id
 func UpdateArticle(article Models.Article, id int32) bool {
 	if openDBConnection != nil {
 		_, found := GetSingleArticle(id)
