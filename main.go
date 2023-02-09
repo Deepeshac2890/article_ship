@@ -1,6 +1,8 @@
 package main
 
 import (
+	Db "article_ship/Database"
+	"article_ship/Models"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
@@ -9,16 +11,7 @@ import (
 	"net/http"
 )
 
-type Article struct {
-	Id      string `json:"Id"`
-	Title   string `json:"Title"`
-	Desc    string `json:"Desc"`
-	Content string `json:"Content"`
-}
-
-type Articles []Article
-
-var articles Articles
+var articles Models.Articles
 
 func allArticles(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("End point hit : All articles endpoint")
@@ -42,12 +35,13 @@ func createNewArticle(w http.ResponseWriter, r *http.Request) {
 	// get the body of our POST request
 	// return the string response containing the request body
 	reqBody, _ := io.ReadAll(r.Body)
-	var article Article
+	var article Models.Article
 	err := json.Unmarshal(reqBody, &article)
 	if err != nil {
 		return
 	}
 	articles = append(articles, article)
+	Db.InsertArticle(article)
 	err = json.NewEncoder(w).Encode(articles)
 	if err != nil {
 		return
@@ -89,7 +83,7 @@ func returnSingleArticle(w http.ResponseWriter, req *http.Request) {
 	}
 
 	for _, article := range articles {
-		if article.Id == key {
+		if fmt.Sprintf("%d", article.Id) == key {
 			err := json.NewEncoder(w).Encode(article)
 			if err != nil {
 				return
@@ -99,7 +93,7 @@ func returnSingleArticle(w http.ResponseWriter, req *http.Request) {
 }
 
 func deleteAllArticle(w http.ResponseWriter, r *http.Request) {
-	articles = Articles{}
+	articles = Models.Articles{}
 	err := json.NewEncoder(w).Encode(articles)
 	if err != nil {
 		return
@@ -119,7 +113,7 @@ func deleteSingleArticle(w http.ResponseWriter, req *http.Request) {
 	for index, article := range articles {
 		// if our id path parameter matches one of our
 		// articles
-		if article.Id == key {
+		if fmt.Sprintf("%d", article.Id) == key {
 			// updates our Articles array to remove the
 			// article
 			articles = append(articles[:index], articles[index+1:]...)
@@ -132,6 +126,7 @@ func deleteSingleArticle(w http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
-	articles = Articles{}
+	articles = Models.Articles{}
+	Db.InitConnection()
 	handleRequests()
 }
