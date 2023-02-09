@@ -30,24 +30,115 @@ func closeConnection() {
 	}
 }
 
-func InsertArticle(article Models.Article) {
+func InsertArticle(article Models.Article) bool {
 	if openDBConnection != nil {
-		// TODO: Add a check to see if id already present
-		sqlQuery := fmt.Sprintf("INSERT INTO Articles (Title, Description, category, Content, id) VALUES ('%s', '%s', '%s', '%s', '%d')", article.Title, article.Desc, article.Category, article.Content, article.Id)
-		insert, err := openDBConnection.Query(sqlQuery)
+		_, isDuplicate := GetSingleArticle(article.Id)
+		if isDuplicate {
+			return false
+		} else {
+			sqlQuery := fmt.Sprintf("INSERT INTO Articles (Title, Description, category, Content, id) VALUES ('%s', '%s', '%s', '%s', '%d')", article.Title, article.Desc, article.Category, article.Content, article.Id)
+			insert, err := openDBConnection.Query(sqlQuery)
+			if err != nil {
+				panic(err.Error())
+			}
+			// be careful deferring Queries if you are using transactions
+			defer func(insert *sql.Rows) {
+				err := insert.Close()
+				if err != nil {
+
+				}
+			}(insert)
+			return true
+		}
+	} else {
+		fmt.Println("DB Connection is closed")
+	}
+	return false
+}
+
+func GetAllArticles() Models.Articles {
+	var articles Models.Articles
+	if openDBConnection != nil {
+		sqlQuery := fmt.Sprintf("SELECT * FROM Articles")
+		results, err := openDBConnection.Query(sqlQuery)
 		if err != nil {
 			panic(err.Error())
 		}
-		// be careful deferring Queries if you are using transactions
-		defer func(insert *sql.Rows) {
-			err := insert.Close()
+		for results.Next() {
+			var article Models.Article
+			err = results.Scan(&article.Title, &article.Desc, &article.Category, &article.Content, &article.Id)
 			if err != nil {
-
+				panic(err.Error())
 			}
-		}(insert)
+			articles = append(articles, article)
+		}
 	} else {
-		fmt.Println("Db Connection is close")
+		fmt.Println("DB Connection is closed")
+	}
+	return articles
+}
+
+func GetSingleArticle(id int32) (Models.Article, bool) {
+	var article Models.Article
+	if openDBConnection != nil {
+		sqlQuery := fmt.Sprintf("SELECT * FROM Articles where id=%d", id)
+		result := openDBConnection.QueryRow(sqlQuery)
+		err := result.Scan(&article.Title, &article.Desc, &article.Category, &article.Content, &article.Id)
+		if err != nil {
+			return Models.Article{}, false
+		}
+		return article, true
+	} else {
+		fmt.Println("DB Connection is closed")
+		return article, false
 	}
 }
 
-// TODO: Add Get, delete and update db operations as well
+func DeleteSingleArticle(id int32) bool {
+	if openDBConnection != nil {
+		sqlQuery := fmt.Sprintf("DELETE * FROM Articles where id=%d", id)
+		_, err := openDBConnection.Query(sqlQuery)
+		if err != nil {
+			panic(err.Error())
+		}
+		return true
+	} else {
+		fmt.Println("DB Connection is closed")
+	}
+	return false
+}
+
+func DeleteAllArticles() bool {
+	if openDBConnection != nil {
+		sqlQuery := fmt.Sprintf("DELETE FROM Articles")
+		_, err := openDBConnection.Query(sqlQuery)
+		if err != nil {
+			panic(err.Error())
+		}
+		return true
+	} else {
+		fmt.Println("DB Connection is closed")
+	}
+	return false
+}
+
+func UpdateArticle(article Models.Article, id int32) bool {
+	if openDBConnection != nil {
+		_, found := GetSingleArticle(id)
+		if found {
+			sqlQuery := fmt.Sprintf("UPDATE Articles SET (Title = '%s', Description = '%s', category = '%s', Content = '%s') where id=%d", article.Title, article.Desc, article.Category, article.Content, id)
+			updated, err := openDBConnection.Query(sqlQuery)
+			if err != nil {
+				panic(err.Error())
+			}
+			err = updated.Close()
+			if err != nil {
+				return false
+			}
+			return true
+		}
+	} else {
+		fmt.Println("DB Connection is closed")
+	}
+	return false
+}

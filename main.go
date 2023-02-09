@@ -2,6 +2,7 @@ package main
 
 import (
 	Db "article_ship/Database"
+	"article_ship/Helper"
 	"article_ship/Models"
 	"encoding/json"
 	"fmt"
@@ -15,6 +16,7 @@ var articles Models.Articles
 
 func allArticles(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("End point hit : All articles endpoint")
+	articles = Db.GetAllArticles()
 	err := json.NewEncoder(w).Encode(articles)
 	if err != nil {
 		_, err := fmt.Fprintln(w, http.StatusNotFound)
@@ -40,11 +42,17 @@ func createNewArticle(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	articles = append(articles, article)
-	Db.InsertArticle(article)
-	err = json.NewEncoder(w).Encode(articles)
-	if err != nil {
-		return
+	isInserted := Db.InsertArticle(article)
+	if isInserted {
+		err = json.NewEncoder(w).Encode(article)
+		if err != nil {
+			return
+		}
+	} else {
+		err = json.NewEncoder(w).Encode("Article was not inserted")
+		if err != nil {
+			return
+		}
 	}
 }
 
@@ -69,34 +77,56 @@ func handleRequests() {
 }
 
 func updateArticle(w http.ResponseWriter, req *http.Request) {
-	deleteSingleArticle(w, req)
-	createNewArticle(w, req)
-}
-
-func returnSingleArticle(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	key := vars["id"]
-
-	_, err := fmt.Fprintln(w, "Key : "+key)
+	id := Helper.StringToInt32(key)
+	reqBody, _ := io.ReadAll(req.Body)
+	var article Models.Article
+	err := json.Unmarshal(reqBody, &article)
 	if err != nil {
-		return
-	}
-
-	for _, article := range articles {
-		if fmt.Sprintf("%d", article.Id) == key {
-			err := json.NewEncoder(w).Encode(article)
+		err := json.NewEncoder(w).Encode("Something went wrong !! Problem with request")
+		if err != nil {
+			panic(err.Error())
+		}
+	} else {
+		if Db.UpdateArticle(article, id) {
+			err = json.NewEncoder(w).Encode("Article has been updated !!")
 			if err != nil {
-				return
+				panic(err.Error())
+			}
+		} else {
+			err = json.NewEncoder(w).Encode("Something went wrong !!")
+			if err != nil {
+				panic(err.Error())
 			}
 		}
 	}
 }
 
-func deleteAllArticle(w http.ResponseWriter, r *http.Request) {
-	articles = Models.Articles{}
-	err := json.NewEncoder(w).Encode(articles)
+func returnSingleArticle(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	key := vars["id"]
+	id := Helper.StringToInt32(key)
+
+	article, _ := Db.GetSingleArticle(id)
+	err := json.NewEncoder(w).Encode(article)
 	if err != nil {
 		return
+	}
+}
+
+func deleteAllArticle(w http.ResponseWriter, r *http.Request) {
+	isSuccess := Db.DeleteAllArticles()
+	if isSuccess {
+		err := json.NewEncoder(w).Encode("All articles have been deleted")
+		if err != nil {
+			return
+		}
+	} else {
+		err := json.NewEncoder(w).Encode("Something went wrong!!")
+		if err != nil {
+			return
+		}
 	}
 }
 
@@ -104,24 +134,18 @@ func deleteSingleArticle(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	key := vars["id"]
 
-	_, err := fmt.Fprintln(w, "Key : "+key)
-	if err != nil {
-		return
-	}
-
+	hasDeleted := Db.DeleteSingleArticle(Helper.StringToInt32(key))
 	// we then need to loop through all our articles
-	for index, article := range articles {
-		// if our id path parameter matches one of our
-		// articles
-		if fmt.Sprintf("%d", article.Id) == key {
-			// updates our Articles array to remove the
-			// article
-			articles = append(articles[:index], articles[index+1:]...)
+	if hasDeleted {
+		err := json.NewEncoder(w).Encode("Article has been deleted")
+		if err != nil {
+			return
 		}
-	}
-	err = json.NewEncoder(w).Encode(articles)
-	if err != nil {
-		return
+	} else {
+		err := json.NewEncoder(w).Encode("Something went wrong!!")
+		if err != nil {
+			return
+		}
 	}
 }
 
